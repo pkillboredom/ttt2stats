@@ -1,0 +1,12 @@
+{
+    "title": "[TTT2] Game Statistics",
+    "description": "Records gameplay statistics for TTT2.",
+    "type": "servercontent",
+    "tags": [
+        "realism"
+    ],
+    "ignore": [
+        ".git/*",
+        "README.md"
+    ]
+}
