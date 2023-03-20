@@ -13,13 +13,13 @@ This addon is still under development and no one should probably use it yet, unl
 
 ### Broken/todo
 
-- Winning Team not handled.
-- Roles are not being recorded because the game sets them up immediately *prior* to round start.
+- Winning Team not handled. -- To be tested
+- Roles are not being recorded because the game sets them up immediately *prior* to round start. -- To be tested
 - Have not tested that prop damage, barrel explosions, etc come correctly or end up as world or some other fallback weapon.
 
 ### Wishlist
 
-- Track Equipment Buys
+- Track Equipment Buys -- To be tested
 - Track Credit transfers (most generous award!)
 - Track total distance walked by each player in each round.
 - Track deaths
