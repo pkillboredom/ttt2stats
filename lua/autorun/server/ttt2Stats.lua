@@ -178,10 +178,10 @@ if SERVER then
 			local inflictor = dmgInfo:GetInflictor()
 			local attackerSteamID = "world"
 			local weapon = "world"
-			if attacker != nil then 
+			if attacker != nil and attacker:IsValid() then 
 				if attacker:IsPlayer() then
 					attackerSteamID = attacker:SteamID64()
-					if weapon:IsValid() then
+					if attacker:GetActiveWeapon():IsValid() then
 						weapon = attacker:GetActiveWeapon():GetClass()
 					end
 				end
