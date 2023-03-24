@@ -21,6 +21,9 @@ function dropTables()
 	if (sql.TableExists("ttt2stats_equipment_buy") == true) then
 		sql.Query("DROP TABLE ttt2stats_equipment_buy;")
 	end
+	if (sql.TableExists("ttt2stats_credit_recieved") == true) then
+		sql.Query("DROP TABLE ttt2stats_credit_recieved;")
+	end
 end
 
 function createTables()
@@ -30,11 +33,24 @@ function createTables()
 		-- Pre-populate table with 'world' player
 		sql.Query("INSERT INTO ttt2stats_players (steamid, friendly_name) VALUES ('world', 'world');")
 	end
-	sql.Query("CREATE TABLE ttt2stats_rounds (id INTEGER PRIMARY KEY AUTOINCREMENT, map TEXT NOT NULL, start_time INTEGER NOT NULL, end_time INTEGER, ended_normally INTEGER (0, 1) DEFAULT (0), result TEXT);")
-	sql.Query("CREATE TABLE ttt2stats_player_round_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid TEXT REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), player_role TEXT NOT NULL, role_assign_time INTEGER NOT NULL);")
-	sql.Query("CREATE TABLE ttt2stats_player_damage (id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id), attacker_steamid TEXT REFERENCES ttt2stats_players (steamid), victim_steamid TEXT REFERENCES ttt2stats_players (steamid) NOT NULL, damage_time INTEGER NOT NULL, damage_dealt INTEGER NOT NULL, health_remain INTEGER NOT NULL, weapon TEXT);")
-	sql.Query("CREATE TABLE ttt2stats_player_round_karma (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid INTEGER REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), player_starting_karma NUMERIC, player_ending_karma NUMERIC);")
-	sql.Query("CREATE TABLE ttt2stats_equipment_buy (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid INTEGER REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), equip_class TEXT NOT NULL, equip_cost INTEGER, was_free INTEGER (0, 1) DEFAULT (0), buy_time INTEGER);")
+	if (sql.TableExists("ttt2stats_rounds") == false) then
+		sql.Query("CREATE TABLE ttt2stats_rounds (id INTEGER PRIMARY KEY AUTOINCREMENT, map TEXT NOT NULL, start_time INTEGER NOT NULL, end_time INTEGER, ended_normally INTEGER (0, 1) DEFAULT (0), result TEXT);")
+	end
+	if (sql.TableExists("ttt2stats_player_round_roles") == false) then
+		sql.Query("CREATE TABLE ttt2stats_player_round_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid TEXT REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), player_role TEXT NOT NULL, role_assign_time INTEGER NOT NULL);")
+	end
+	if (sql.TableExists("ttt2stats_player_damage") == false) then
+		sql.Query("CREATE TABLE ttt2stats_player_damage (id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id), attacker_steamid TEXT REFERENCES ttt2stats_players (steamid), victim_steamid TEXT REFERENCES ttt2stats_players (steamid) NOT NULL, damage_time INTEGER NOT NULL, damage_dealt INTEGER NOT NULL, health_remain INTEGER NOT NULL, weapon TEXT);")
+	end
+	if (sql.TableExists("ttt2stats_player_round_karma") == false) then
+		sql.Query("CREATE TABLE ttt2stats_player_round_karma (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid INTEGER REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), player_starting_karma NUMERIC, player_ending_karma NUMERIC);")
+	end
+	if (sql.TableExists("ttt2stats_equipment_buy") == false) then
+		sql.Query("CREATE TABLE ttt2stats_equipment_buy (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid INTEGER REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), equip_class TEXT NOT NULL, equip_cost INTEGER, was_free INTEGER (0, 1) DEFAULT (0), buy_time INTEGER, credit_balance TEXT);")
+	end
+	if (sql.TableExists("ttt2stats_credit_recieved") == false) then
+		sql.Query("CREATE TABLE ttt2stats_credit_recieved (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_steamid INTEGER REFERENCES ttt2stats_players (steamid) NOT NULL, credit_source TEXT, credit_amt INTEGER NOT NULL, credit_balance NOT NULL);")
+	end
 end
 
 if SERVER then
@@ -109,7 +125,7 @@ if SERVER then
 			print("DEBUG-TTT2STATS: TTTEndRound hook called.")
 		end
 		local endTime = os.time()
-		sql.Query("UPDATE ttt2stats_rounds SET end_time = " .. sql.SQLStr(endTime) .. ", result = " .. sql.SQLStr(result) .. " ended_normally = '1' WHERE id = " .. sql.SQLStr(roundID) .. ";")
+		sql.Query("UPDATE ttt2stats_rounds SET end_time = " .. sql.SQLStr(endTime) .. ", result = " .. sql.SQLStr(result) .. ", ended_normally = '1' WHERE id = " .. sql.SQLStr(roundID) .. ";")
 		-- Get all players who participated in this round
 		local allPlayers = player.GetAll()
 		local activePlayers = {}
@@ -165,7 +181,9 @@ if SERVER then
 			if attacker != nil then 
 				if attacker:IsPlayer() then
 					attackerSteamID = attacker:SteamID64()
-					weapon = attacker:GetActiveWeapon():GetClass()
+					if weapon:IsValid() then
+						weapon = attacker:GetActiveWeapon():GetClass()
+					end
 				end
 			end
 			if inflictor:IsValid() and not inflictor:IsPlayer() then
@@ -198,10 +216,15 @@ if SERVER then
 		end
 		local steamID = ply:SteamID64()
 		local buyTime = os.time()
+		local playerCreditBalance = ply:GetCredits()
 		local ignoreCostInt = 0
 		if ignoreCost then
 			ignoreCostInt = 1
 		end
-		sql.Query("INSERT INTO ttt2stats_equipment_buy (player_steamid,round_id,equip_class,equip_cost,was_free,buy_time) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(class) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(ignoreCostInt) .. "," .. sql.SQLStr(buyTime) .. ");")
+		sql.Query("INSERT INTO ttt2stats_equipment_buy (player_steamid,round_id,equip_class,equip_cost,was_free,buy_time,credit_balance) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(class) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(ignoreCostInt) .. "," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(playerCreditBalance) .. ");")
 	end)
+
+	-- Hook TTT2TransferredCredits.
+	-- This hook does not yet exist. It needs to be added to TTT2.
+	
 end
