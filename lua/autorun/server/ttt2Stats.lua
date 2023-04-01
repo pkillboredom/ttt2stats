@@ -191,7 +191,7 @@ if SERVER then
 	
 	-- Hook that handles recording player damage and deaths.
 	hook.Add("PlayerTakeDamage", "ttt2stats_playerTakeDamage", function(victimEnt, _inflEnt, _attacker, _dmgAmount, dmgInfo)
-		if victimEnt:IsPlayer() then
+		if IsValid(victimEnt) and victimEnt:IsPlayer() then
 			local victimNickname = sql.SQLStr(victimEnt:Nick())
 			if GetConVar("ttt2stats_debug"):GetBool() then 
 				print("DEBUG-TTT2STATS: PlayerHurt hook called for " .. victimNickname .. " (" .. victimEnt:SteamID64() .. ")")
@@ -212,7 +212,7 @@ if SERVER then
 				end
 			end
 			if inflictor:IsValid() and not inflictor:IsPlayer() then
-				weapon = inflEnt:GetClass()
+				weapon = inflictor:GetClass()
 			elseif dmgInfo:IsDamageType(DMG_BURN) then
 				weapon = "fire"
 			elseif dmgInfo:IsDamageType(DMG_FALL) then
