@@ -24,6 +24,9 @@ function dropTables()
 	if (sql.TableExists("ttt2stats_credit_recieved") == true) then
 		sql.Query("DROP TABLE ttt2stats_credit_recieved;")
 	end
+	if (sql.TableExists("ttt2stats_player_deaths") == true) then
+		sql.Query("DROP TABLE ttt2stats_player_deaths;")
+	end
 end
 
 function createTables()
@@ -51,14 +54,36 @@ function createTables()
 	if (sql.TableExists("ttt2stats_credit_recieved") == false) then
 		sql.Query("CREATE TABLE ttt2stats_credit_recieved (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_steamid INTEGER REFERENCES ttt2stats_players (steamid) NOT NULL, credit_source TEXT, credit_amt INTEGER NOT NULL, credit_balance NOT NULL);")
 	end
+	if (sql.TableExists("ttt2stats_player_deaths") == false) then
+		sql.Query("CREATE TABLE ttt2stats_player_deaths ( id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id), player_steamid TEXT REFERENCES ttt2stats_players (steamid), killer TEXT NOT NULL, death_time INTEGER NOT NULL, death_cause TEXT NOT NULL, death_flags TEXT ); ")
+	end
+end
+
+function dropViews()
+	sql.Query("DROP VIEW IF EXISTS v_CombatLog;")
+	sql.Query("DROP VIEW IF EXISTS v_GetMapPlayCount;")
+	sql.Query("DROP VIEW IF EXISTS v_RoleAssignmentsWithFriendlyNames;")
+end
+
+function createViews()
+	sql.Query("CREATE VIEW v_CombatLog AS SELECT damage_time, players1.friendly_name AS attacker_name, attacker_steamid, players2.friendly_name AS victim_name, victim_steamid, damage_dealt, health_remain, weapon FROM ttt2stats_player_damage dmg LEFT JOIN ttt2stats_players players1 ON players1.steamid = dmg.attacker_steamid LEFT JOIN ttt2stats_players players2 ON players2.steamid = dmg.victim_steamid ORDER BY damage_time DESC;")
+	sql.Query("CREATE VIEW v_GetMapPlayCount AS SELECT map, COUNT(map) AS roundsCompletedCount, 0 AS roundsIncompleteCount FROM ttt2stats_rounds r WHERE r.ended_normally = '1' GROUP BY map UNION ALL SELECT map, 0 AS roundsCompletedCount, COUNT(map) AS roundsIncompleteCount FROM ttt2stats_rounds r2 WHERE r2.ended_normally != '1' GROUP BY map;")
+	sql.Query("CREATE VIEW v_RoleAssignmentsWithFriendlyNames AS SELECT round_id, friendly_name, player_role, role_assign_time FROM ttt2stats_player_round_roles LEFT JOIN ttt2stats_players ON ttt2stats_player_round_roles.player_steamid = ttt2stats_players.steamid")
 end
 
 if SERVER then
 	-- Create Debug Convar
 	CreateConVar("ttt2stats_debug", "0", {FCVAR_ARCHIVE, FCVAR_NOTIFY}, "Enables debug output for ttt2stats.")
+	concommand.Add("ttt2stats_create_tables", function (ply, cmd, args)
+		createTables()
+	end)
 	concommand.Add("ttt2stats_reset_tables", function(ply, cmd, args)
 		dropTables()
 		createTables()
+	end)
+	concommand.Add("ttt2stats_reset_views", function(ply, cmd, args)
+		dropViews()
+		createViews()
 	end)
 
 	local roundID = -1 -- This is a placeholder value that will be overwritten when a round starts.
@@ -164,7 +189,7 @@ if SERVER then
 		sql.Query("INSERT INTO ttt2stats_player_round_roles (player_steamid,round_id,player_role,role_assign_time) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(newRole) .. "," .. sql.SQLStr(assignTime) .. ");")
 	end)
 	
-	-- Hook that inserts a new row into ttt2stats_player_damage when any damage is taken.
+	-- Hook that handles recording player damage and deaths.
 	hook.Add("PlayerTakeDamage", "ttt2stats_playerTakeDamage", function(victimEnt, _inflEnt, _attacker, _dmgAmount, dmgInfo)
 		if victimEnt:IsPlayer() then
 			local victimNickname = sql.SQLStr(victimEnt:Nick())
@@ -203,6 +228,35 @@ if SERVER then
 			end
 			local hurtTime = os.time()
 			sql.Query("INSERT INTO ttt2stats_player_damage (round_id,attacker_steamid,victim_steamid,damage_time,damage_dealt,health_remain,weapon) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(hurtTime) .. "," .. sql.SQLStr(damageTaken) .. "," .. sql.SQLStr(healthRemaining) .. "," .. sql.SQLStr(weapon) ..");")
+			-- Also insert row to ttt2_player_deaths if the player died.
+			if healthRemaining <= 0 then
+				local deathTime = os.time()
+				-- Create table for death flags
+				local deathFlags = {}
+				-- Determine if player was headshot
+				if victimEnt.was_headshot then
+					deathFlags.headshot = true;
+				end
+				-- Determine if player was burned to death
+				if dmgInfo:IsDamageType(DMG_DIRECT) then
+					deathFlags.burned = true;
+				end
+				-- Determine if player was in the air when they died
+				if victimEnt:WaterLevel() == 0 and not victimEnt:IsOnGround() then
+					deathFlags.airborne = true;
+				end
+				-- Determine if player was killed by a prop
+				if dmgInfo:IsDamageType(DMG_CRUSH) then
+					deathFlags.crushed = true;
+				end
+				-- Determine if player was blown up
+				if dmgInfo:IsDamageType(DMG_BLAST) then
+					deathFlags.explosion = true;
+				end
+				-- stringify deathFlags table
+				local deathFlagsJson = util.TableToJSON(deathFlags)
+				sql.Query("INSERT INTO ttt2stats_player_deaths (round_id,killer,player_steamid,death_time,death_cause,death_flags) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(deathTime) .. "," .. sql.SQLStr(weapon) .."," .. deathFlagsJson .. ");")
+			end
 		end
 	end)
 
