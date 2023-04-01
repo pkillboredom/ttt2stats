@@ -93,7 +93,7 @@ if SERVER then
 	end)
 
 	local roundID = -1 -- This is a placeholder value that will be overwritten when a round starts.
-	
+
 	-- Hook that inserts a new player row into ttt2stats_players when a player joins the server IF they haven't already been added.
 	hook.Add("PlayerInitialSpawn", "ttt2stats_playerInitialSpawn", function(ply)
 		local playerNickname = sql.SQLStr(ply:Nick())
@@ -105,26 +105,26 @@ if SERVER then
 			if GetConVar("ttt2stats_debug"):GetBool() then
 				print("DEBUG-TTT2STATS: Player " .. playerNickname .. " (" .. sql.SQLStr(ply:SteamID64()) .. ") not found in ttt2stats_players. Adding them.")
 			end
-			// Note: playerNickname is already surrounded w/ quotes
+			-- Note: playerNickname is already surrounded w/ quotes
 			sql.Query("INSERT INTO ttt2stats_players (steamid,friendly_name) VALUES (" .. sql.SQLStr(ply:SteamID64()) .. "," .. playerNickname .. ");")
 		else -- If the player has already been added, update their friendly name if it has changed.
-			if playerRow["friendly_name"] ~= playerNickname then
+			if playerRow["friendly_name"] != playerNickname then
 				sql.Query("UPDATE ttt2stats_players SET friendly_name = " .. playerNickname .. " WHERE steamid = " .. sql.SQLStr(ply:SteamID64()) .. ";")
 			end
 		end
 	end)
-	
+
 	-- Hook that inserts a new row into ttt2stats_rounds when a round starts. The hook keeps the id of the round in the roundID variable.
 	hook.Add("TTTBeginRound", "ttt2stats_tttbeginround", function()
-		if GetConVar("ttt2stats_debug"):GetBool() then 
+		if GetConVar("ttt2stats_debug"):GetBool() then
 			print("DEBUG-TTT2STATS: TTTBeginRound hook called.")
 		end
 		local mapName = game.GetMap()
 		local startTime = os.time()
 		-- Insert a new row into ttt2stats_rounds for this round. Default value for ended_normally is 0.
-		sql.Query("INSERT INTO ttt2stats_rounds (map,start_time,ended_normally) VALUES (" .. sql.SQLStr(mapName) .."," .. sql.SQLStr(startTime) .. ", '0');")
+		sql.Query("INSERT INTO ttt2stats_rounds (map,start_time,ended_normally) VALUES (" .. sql.SQLStr(mapName) .. "," .. sql.SQLStr(startTime) .. ", '0');")
 		roundID = sql.QueryValue("SELECT last_insert_rowid();")
-		if GetConVar("ttt2stats_debug"):GetBool() then 
+		if GetConVar("ttt2stats_debug"):GetBool() then
 			print("DEBUG-TTT2STATS: Round ID is " .. roundID .. ".")
 		end
 		-- Get all players who will participate in this round
@@ -149,10 +149,10 @@ if SERVER then
 			sql.Query("INSERT INTO ttt2stats_player_round_roles (player_steamid, round_id, player_role, role_assign_time) VALUES (" .. sql.SQLStr(playerSteamID) .. ", " .. sql.SQLStr(roundID) .. ", " .. sql.SQLStr(playerRole) .. ", " .. sql.SQLStr(roleAssignTime) .. ");")
 		end
 	end)
-	
+
 	-- Hook that updates the end_time and ended_normally columns of the round row in ttt2stats_rounds when a round ends.
 	hook.Add("TTTEndRound", "ttt2stats_tttendround", function(result)
-		if GetConVar("ttt2stats_debug"):GetBool() then 
+		if GetConVar("ttt2stats_debug"):GetBool() then
 			print("DEBUG-TTT2STATS: TTTEndRound hook called.")
 		end
 		local endTime = os.time()
@@ -175,18 +175,18 @@ if SERVER then
 		-- Lastly, set roundID back to -1 so that it is ready for the next round.
 		roundID = -1
 	end)
-	
+
 	-- Hook that inserts a new row into ttt2stats_player_round_roles when a player is assigned a role.
 	-- Because TTT2UpdateSubrole is called before the round starts, this only applies to any mid-round role changes.
 	hook.Add("TTT2UpdateSubrole", "ttt2stats_ttt2updaterole", function(ply, oldSubrole, newSubrole)
 		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then 
+			if GetConVar("ttt2stats_debug"):GetBool() then
 				print("DEBUG-TTT2STATS: TTT2UpdateSubrole hook called before a round has started. Skipping.")
 			end
 			return
 		end
 		local playerNickname = sql.SQLStr(ply:Nick())
-		if GetConVar("ttt2stats_debug"):GetBool() then 
+		if GetConVar("ttt2stats_debug"):GetBool() then
 			print("DEBUG-TTT2STATS: TTT2UpdateSubrole hook called for " .. playerNickname .. " (" .. ply:SteamID64() .. ")")
 		end
 		local steamID = ply:SteamID64()
@@ -194,12 +194,12 @@ if SERVER then
 		local newRole = roles.GetByIndex(newSubrole).name
 		sql.Query("INSERT INTO ttt2stats_player_round_roles (player_steamid,round_id,player_role,role_assign_time) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(newRole) .. "," .. sql.SQLStr(assignTime) .. ");")
 	end)
-	
+
 	-- Hook that handles recording player damage and deaths.
 	hook.Add("PlayerTakeDamage", "ttt2stats_playerTakeDamage", function(victimEnt, _inflEnt, _attacker, _dmgAmount, dmgInfo)
 		if IsValid(victimEnt) and victimEnt:IsPlayer() then
 			local victimNickname = sql.SQLStr(victimEnt:Nick())
-			if GetConVar("ttt2stats_debug"):GetBool() then 
+			if GetConVar("ttt2stats_debug"):GetBool() then
 				print("DEBUG-TTT2STATS: PlayerHurt hook called for " .. victimNickname .. " (" .. victimEnt:SteamID64() .. ")")
 			end
 			local victimSteamID = victimEnt:SteamID64()
@@ -209,7 +209,7 @@ if SERVER then
 			local inflictor = dmgInfo:GetInflictor()
 			local attackerSteamID = "world"
 			local weapon = "world"
-			if attacker != nil and attacker:IsValid() then 
+			if attacker != nil and attacker:IsValid() then
 				if attacker:IsPlayer() then
 					attackerSteamID = attacker:SteamID64()
 					if attacker:GetActiveWeapon():IsValid() then
@@ -221,7 +221,7 @@ if SERVER then
 				weapon = inflictor:GetClass()
 			end
 			local hurtTime = os.time()
-			sql.Query("INSERT INTO ttt2stats_player_damage (round_id,attacker_steamid,victim_steamid,damage_time,damage_dealt,health_remain,weapon) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(hurtTime) .. "," .. sql.SQLStr(damageTaken) .. "," .. sql.SQLStr(healthRemaining) .. "," .. sql.SQLStr(weapon) ..");")
+			sql.Query("INSERT INTO ttt2stats_player_damage (round_id,attacker_steamid,victim_steamid,damage_time,damage_dealt,health_remain,weapon) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(hurtTime) .. "," .. sql.SQLStr(damageTaken) .. "," .. sql.SQLStr(healthRemaining) .. "," .. sql.SQLStr(weapon) .. ");")
 			-- Also insert row to ttt2_player_deaths if the player died.
 			if healthRemaining <= 0 then
 				local deathTime = os.time()
@@ -254,7 +254,7 @@ if SERVER then
 				else
 					deathFlagsJson = util.TableToJSON(deathFlags)
 				end
-				sql.Query("INSERT INTO ttt2stats_player_deaths (round_id,player_steamid,killer,death_time,death_cause,death_flags) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(deathTime) .. "," .. sql.SQLStr(weapon) .."," .. sql.SQLStr(deathFlagsJson) .. ");")
+				sql.Query("INSERT INTO ttt2stats_player_deaths (round_id,player_steamid,killer,death_time,death_cause,death_flags) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(deathTime) .. "," .. sql.SQLStr(weapon) .. "," .. sql.SQLStr(deathFlagsJson) .. ");")
 			end
 		end
 	end)
@@ -262,7 +262,7 @@ if SERVER then
 	-- Hook that inserts a new row into ttt2stats_equipment_buy when a player buys equipment.
 	hook.Add("TTT2OrderedEquipment", "ttt2stats_orderedEquipment", function(ply, class, isItem, credits, ignoreCost)
 		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then 
+			if GetConVar("ttt2stats_debug"):GetBool() then
 				print("DEBUG-TTT2STATS: TTT2OrderedEquipment hook called before a round has started. Skipping.")
 			end
 			return
@@ -279,5 +279,5 @@ if SERVER then
 
 	-- Hook TTT2TransferredCredits.
 	-- This hook does not yet exist. It needs to be added to TTT2.
-	
+
 end
