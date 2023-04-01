@@ -16,6 +16,11 @@ This addon is still under development and no one should probably use it yet, unl
 
 ### Broken/todo
 
+- Buffer player damage for env_fire such that:
+  - Taking consecuitive burn damage from a single attacker...
+  - Should display in the damage long as a single attack, so long as...
+  - No other attackers, victims, or weapons occur server wide, in which case the burn damage will be flushed to SQL...
+  - ...such that the combat log is not overrun with molotov spam. 
 - Need to add new hooks to TTT2.
 
 ### Wishlist
