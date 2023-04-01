@@ -10,7 +10,7 @@ This addon is still under development and no one should probably use it yet, unl
 - TTT Rounds
 - Damage Taken/Dealt w/ weapon
 - Player Deaths
-  - Also tracks if death was a headshot, airborne, burn*, crush*, explosion*.
+  - Also tracks if death was a headshot, airborne, burn\*, crush\*, explosion*.
 - Each player's karma at round start and end.
 - Equipment Buys
 
@@ -21,10 +21,12 @@ This addon is still under development and no one should probably use it yet, unl
 
 ### Wishlist
 
-- Track Credit awards and transfers (most generous award!) -- Requires adding new hooks to TTT2.
-  - GiveFoundCredits
-  - HandleKillCreditsAward
-  - TransferCredits -- sv_shop.lua
+- Track Credit awards and transfers (most generous award!)
+  - WIP table designed.
+  - Requires adding new hooks to TTT2.
+    - GiveFoundCredits
+    - HandleKillCreditsAward
+    - TransferCredits -- sv_shop.lua
 - Track Minigames Played
 - Track total distance walked by each player in each round.
 - Track playermodel changes (also track pm on join?)

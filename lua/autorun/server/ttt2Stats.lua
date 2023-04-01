@@ -27,6 +27,9 @@ function dropTables()
 	if (sql.TableExists("ttt2stats_player_deaths") == true) then
 		sql.Query("DROP TABLE ttt2stats_player_deaths;")
 	end
+	if (sql.TableExists("ttt2stats_credit_transactions") == true) then
+		sql.Query("DROP TABLE ttt2stats_credit_transactions;")
+	end
 end
 
 function createTables()
@@ -56,6 +59,9 @@ function createTables()
 	end
 	if (sql.TableExists("ttt2stats_player_deaths") == false) then
 		sql.Query("CREATE TABLE ttt2stats_player_deaths ( id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id), player_steamid TEXT REFERENCES ttt2stats_players (steamid), killer TEXT NOT NULL, death_time INTEGER NOT NULL, death_cause TEXT NOT NULL, death_flags TEXT ); ")
+	end
+	if (sql.TableExists("ttt2stats_credit_transactions") == false) then
+		sql.Query("CREATE TABLE ttt2stats_credit_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id) NOT NULL, transaction_type TEXT NOT NULL, credit_amount INTEGER NOT NULL, source TEXT, destination TEXT, source_new_balance INTEGER, dest_new_balance INTEGER);")
 	end
 end
 
