@@ -254,8 +254,13 @@ if SERVER then
 					deathFlags.explosion = true;
 				end
 				-- stringify deathFlags table
-				local deathFlagsJson = util.TableToJSON(deathFlags)
-				sql.Query("INSERT INTO ttt2stats_player_deaths (round_id,killer,player_steamid,death_time,death_cause,death_flags) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(deathTime) .. "," .. sql.SQLStr(weapon) .."," .. deathFlagsJson .. ");")
+				local deathFlagsJson = ""
+				if (next(deathFlags) == nil) then
+					deathFlags = "{}"
+				else
+					deathFlagsJson = util.TableToJSON(deathFlags)
+				end
+				sql.Query("INSERT INTO ttt2stats_player_deaths (round_id,player_steamid,killer,death_time,death_cause,death_flags) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(deathTime) .. "," .. sql.SQLStr(weapon) .."," .. sql.SQLStr(deathFlagsJson) .. ");")
 			end
 		end
 	end)
