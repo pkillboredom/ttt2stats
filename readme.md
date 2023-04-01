@@ -15,8 +15,7 @@ This addon is still under development and no one should probably use it yet, unl
 - Equipment Buys
 
 ### Broken/todo
-
-
+ 
 - Ignore negative world damage from env_fire? Occurs during molotov attacks and seems to not actually affect player health.
 - Buffer player damage for env_fire such that:
   - Taking consecuitive burn damage from a single attacker...
