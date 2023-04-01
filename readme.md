@@ -9,13 +9,15 @@ This addon is still under development and no one should probably use it yet, unl
 - Players
 - TTT Rounds
 - Damage Taken/Dealt w/ weapon
+- Player Deaths
+  - Also tracks if death was a headshot, airborne, burn*, crush*, explosion*.
 - Each player's karma at round start and end.
 - Equipment Buys
 
 ### Broken/todo
 
-- Winning Team not handled. -- To be tested
-- Have not tested that prop damage, barrel explosions, etc come correctly or end up as world or some other fallback weapon.
+- Molotovs and prop explosions definitely not working. Maybe more. Anything non-gun it seems does not record correctly. This also affects deaths :(
+  - *These death types are not working because of an error resolving the inflEnt (inflictor Entity).
 
 ### Wishlist
 
@@ -25,9 +27,6 @@ This addon is still under development and no one should probably use it yet, unl
   - TransferCredits -- sv_shop.lua
 - Track Minigames Played
 - Track total distance walked by each player in each round.
-- Track deaths
-- Track headshot deaths
-- Track airborne deaths
 - Track playermodel changes (also track pm on join?)
 - Track RTVs -- take code from PAM
 - Track player load times
