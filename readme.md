@@ -16,8 +16,7 @@ This addon is still under development and no one should probably use it yet, unl
 
 ### Broken/todo
 
-- Molotovs and prop explosions definitely not working. Maybe more. Anything non-gun it seems does not record correctly. This also affects deaths :(
-  - *These death types are not working because of an error resolving the inflEnt (inflictor Entity).
+- Need to add new hooks to TTT2.
 
 ### Wishlist
 

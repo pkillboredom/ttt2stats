@@ -219,18 +219,6 @@ if SERVER then
 			end
 			if inflictor:IsValid() and not inflictor:IsPlayer() then
 				weapon = inflictor:GetClass()
-			elseif dmgInfo:IsDamageType(DMG_BURN) then
-				weapon = "fire"
-			elseif dmgInfo:IsDamageType(DMG_FALL) then
-				weapon = "fall"
-			elseif dmgInfo:IsDamageType(DMG_VEHICLE) then
-				weapon = "vehicle"
-			elseif dmgInfo:IsDamageType(DMG_SLASH) then
-				weapon = "slash"
-			elseif dmgInfo:IsDamageType(DMG_CRUSH) then
-				weapon = "physics"
-			elseif dmgInfo:IsDamageType(DMG_BLAST) then
-				weapon = "explosion"
 			end
 			local hurtTime = os.time()
 			sql.Query("INSERT INTO ttt2stats_player_damage (round_id,attacker_steamid,victim_steamid,damage_time,damage_dealt,health_remain,weapon) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(attackerSteamID) .. "," .. sql.SQLStr(victimSteamID) .. "," .. sql.SQLStr(hurtTime) .. "," .. sql.SQLStr(damageTaken) .. "," .. sql.SQLStr(healthRemaining) .. "," .. sql.SQLStr(weapon) ..");")
@@ -244,7 +232,7 @@ if SERVER then
 					deathFlags.headshot = true;
 				end
 				-- Determine if player was burned to death
-				if dmgInfo:IsDamageType(DMG_DIRECT) then
+				if dmgInfo:IsDamageType(DMG_BURN) or weapon == "env_fire" then
 					deathFlags.burned = true;
 				end
 				-- Determine if player was in the air when they died
