@@ -173,11 +173,11 @@ if SERVER then
 	-- Hook that inserts a new row into ttt2stats_player_round_roles when a player is assigned a role.
 	-- Because TTT2UpdateSubrole is called before the round starts, this only applies to any mid-round role changes.
 	hook.Add("TTT2UpdateSubrole", "ttt2stats_ttt2updaterole", function(ply, oldSubrole, newSubrole)
-		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			if roundID == -1 then
 				print("DEBUG-TTT2STATS: TTT2UpdateSubrole hook called before a round has started. Skipping.")
+				return
 			end
-			return
 		end
 		local playerNickname = sql.SQLStr(ply:Nick())
 		if GetConVar("ttt2stats_debug"):GetBool() then
@@ -253,11 +253,12 @@ if SERVER then
 
 	-- Hook that inserts a new row into ttt2stats_equipment_buy when a player buys equipment.
 	hook.Add("TTT2OrderedEquipment", "ttt2stats_orderedEquipment", function(ply, class, isItem, credits, ignoreCost)
-		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			print("DEBUG-TTT2STATS: TTT2OrderedEquipment hook called for " .. ply:Nick() .. " (" .. ply:SteamID64() .. ")")
+			if roundID == -1 then
 				print("DEBUG-TTT2STATS: TTT2OrderedEquipment hook called before a round has started. Skipping.")
+				return
 			end
-			return
 		end
 		local steamID = ply:SteamID64()
 		local buyTime = os.time()
@@ -269,17 +270,20 @@ if SERVER then
 		sql.Query("INSERT INTO ttt2stats_equipment_buy (player_steamid,round_id,equip_class,equip_cost,was_free,buy_time,credit_balance) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(class) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(ignoreCostInt) .. "," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(playerCreditBalance) .. ");")
 		local equipBuyId = sql.QueryValue("SELECT last_insert_rowid();")
 		if (not ignoreCost) then
-			sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr("equipment_buy") .. "," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(equipBuyId) .. "," .. sql.SQLStr(playerCreditBalance - credits) .. ",NULL");
+			local queryText = "INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. ",'equipment_buy'," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(equipBuyId) .. "," .. sql.SQLStr(playerCreditBalance) .. ",NULL);"
+			--print("DEBUG-TTT2STATS: equip_buy credit transaction query text; " .. queryText)
+			sql.Query(queryText);
 		end
 	end)
 
 	-- Hook TTT2OnGiveFoundCredits; inserts a new row into ttt2stats_credit_transactions when a player takes credits from a corpse
 	hook.Add("TTT2OnGiveFoundCredits", "ttt2stats_OnGiveFoundCredits", function(ply, rag, credits)
-		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			print("TTT2OnGiveFoundCredits hook called")
+			if roundID == -1 then
 				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+				return
 			end
-			return
 		end
 		local transaction_type = "CorpseCreditsFound"
 		local trans_time = os.time()
@@ -292,11 +296,12 @@ if SERVER then
 
 	-- Hook TTT2CanTransferCredits; inserts a new row into ttt2stats_credit_transactions when a player transfers credits to another player
 	hook.Add("TTT2TransferedCredits", "ttt2stats_TTT2TransferedCredits", function(sender, recipient, credits, isRecipientDead)
-		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			print("DEBUG-TTT2STATS: TTT2TransferedCredits hook called. Sender: " .. sender:Nick() .. " Recipient: " .. recipient:Nick() .. " Credits: " .. credits .. " isRecipientDead: " .. tostring(isRecipientDead))
+			if roundID == -1 then
 				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+				return
 			end
-			return
 		end
 		local transaction_type = "CreditTransfer"
 		local trans_time = os.time()
@@ -319,11 +324,12 @@ if SERVER then
 
 	-- Hook TTT2ReceivedKillCredits; inserts a new row into ttt2stats_credit_transactions when a player receives credits for killing another player
 	hook.Add("TTT2ReceivedKillCredits", "ttt2stats_TTT2ReceivedKillCredits", function(victim, attacker, creditsAmount)
-		if roundID == -1 then
-			if GetConVar("ttt2stats_debug"):GetBool() then
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			print("DEBUG-TTT2STATS: TTT2ReceivedKillCredits hook called.")
+			if roundID == -1 then
 				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+				return
 			end
-			return
 		end
 		local transaction_type = "KillCreditAward"
 		local trans_time = os.time()
@@ -331,18 +337,30 @@ if SERVER then
 		local source_new_balance = NULL
 		local destSteamId = attacker:SteamID64()
 		local dest_new_balance = attacker:GetCredits()
-		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");")
+		local queryText = "INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(creditsAmount) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. ",NULL," .. sql.SQLStr(dest_new_balance) .. ");"
+		--print(creditsAmount)
+		--print("DEBUG-TTT2STATS: " .. queryText)
+		sql.Query(queryText)
 	end)
 
 	-- Hook TTT2ReceivedTeamAwardCredits; inserts a new row into ttt2stats_credit_transactions when a player receives credits from a team award.
 	hook.Add("TTT2ReceivedTeamAwardCredits", "ttt2stats_TTT2ReceivedTeamAwardCredits", function(ply, creditsAmount)
+		if GetConVar("ttt2stats_debug"):GetBool() then
+			print("DEBUG-TTT2STATS: TTT2ReceivedTeamAwardCredits hook called.")
+			if roundID == -1 then
+				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+				return
+			end
+		end
 		local transaction_type = "TeamCreditAward"
 		local trans_time = os.time()
 		local sourceSteamId = NULL
 		local source_new_balance = NULL
 		local destSteamId = ply:SteamID64()
 		local dest_new_balance = ply:GetCredits()
-		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");")
+		local queryText = "INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(creditsAmount) .. ",NULL," .. sql.SQLStr(destSteamId) .. ",NULL," .. sql.SQLStr(dest_new_balance) .. ");"
+		--print(queryText)
+		sql.Query(queryText)
 	end)
 
 end
