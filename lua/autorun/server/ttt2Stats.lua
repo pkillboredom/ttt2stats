@@ -21,9 +21,6 @@ function dropTables()
 	if (sql.TableExists("ttt2stats_equipment_buy") == true) then
 		sql.Query("DROP TABLE ttt2stats_equipment_buy;")
 	end
-	if (sql.TableExists("ttt2stats_credit_recieved") == true) then
-		sql.Query("DROP TABLE ttt2stats_credit_recieved;")
-	end
 	if (sql.TableExists("ttt2stats_player_deaths") == true) then
 		sql.Query("DROP TABLE ttt2stats_player_deaths;")
 	end
@@ -54,14 +51,11 @@ function createTables()
 	if (sql.TableExists("ttt2stats_equipment_buy") == false) then
 		sql.Query("CREATE TABLE ttt2stats_equipment_buy (id INTEGER PRIMARY KEY AUTOINCREMENT, player_steamid INTEGER REFERENCES ttt2stats_players (steamid), round_id INTEGER REFERENCES ttt2stats_rounds (id), equip_class TEXT NOT NULL, equip_cost INTEGER, was_free INTEGER (0, 1) DEFAULT (0), buy_time INTEGER, credit_balance TEXT);")
 	end
-	if (sql.TableExists("ttt2stats_credit_recieved") == false) then
-		sql.Query("CREATE TABLE ttt2stats_credit_recieved (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_steamid INTEGER REFERENCES ttt2stats_players (steamid) NOT NULL, credit_source TEXT, credit_amt INTEGER NOT NULL, credit_balance NOT NULL);")
-	end
 	if (sql.TableExists("ttt2stats_player_deaths") == false) then
 		sql.Query("CREATE TABLE ttt2stats_player_deaths ( id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id), player_steamid TEXT REFERENCES ttt2stats_players (steamid), killer TEXT NOT NULL, death_time INTEGER NOT NULL, death_cause TEXT NOT NULL, death_flags TEXT ); ")
 	end
 	if (sql.TableExists("ttt2stats_credit_transactions") == false) then
-		sql.Query("CREATE TABLE ttt2stats_credit_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id) NOT NULL, transaction_type TEXT NOT NULL, credit_amount INTEGER NOT NULL, source TEXT, destination TEXT, source_new_balance INTEGER, dest_new_balance INTEGER);")
+		sql.Query("CREATE TABLE ttt2stats_credit_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER REFERENCES ttt2stats_rounds (id) NOT NULL, transaction_type TEXT NOT NULL, trans_time INTEGER NOT NULL, credit_amount INTEGER NOT NULL, source TEXT, destination TEXT, source_new_balance INTEGER, dest_new_balance INTEGER);")
 	end
 end
 
@@ -209,12 +203,10 @@ if SERVER then
 			local inflictor = dmgInfo:GetInflictor()
 			local attackerSteamID = "world"
 			local weapon = "world"
-			if attacker != nil and attacker:IsValid() then
-				if attacker:IsPlayer() then
-					attackerSteamID = attacker:SteamID64()
-					if attacker:GetActiveWeapon():IsValid() then
-						weapon = attacker:GetActiveWeapon():GetClass()
-					end
+			if attacker != nil and attacker:IsValid() and attacker:IsPlayer() then
+				attackerSteamID = attacker:SteamID64()
+				if attacker:GetActiveWeapon():IsValid() then
+					weapon = attacker:GetActiveWeapon():GetClass()
 				end
 			end
 			if inflictor:IsValid() and not inflictor:IsPlayer() then
@@ -275,9 +267,82 @@ if SERVER then
 			ignoreCostInt = 1
 		end
 		sql.Query("INSERT INTO ttt2stats_equipment_buy (player_steamid,round_id,equip_class,equip_cost,was_free,buy_time,credit_balance) VALUES (" .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(class) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(ignoreCostInt) .. "," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(playerCreditBalance) .. ");")
+		local equipBuyId = sql.QueryValue("SELECT last_insert_rowid();")
+		if (not ignoreCost) then
+			sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr("equipment_buy") .. "," .. sql.SQLStr(buyTime) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(steamID) .. "," .. sql.SQLStr(equipBuyId) .. "," .. sql.SQLStr(playerCreditBalance - credits) .. ",NULL");
+		end
 	end)
 
-	-- Hook TTT2TransferredCredits.
-	-- This hook does not yet exist. It needs to be added to TTT2.
+	-- Hook TTT2OnGiveFoundCredits; inserts a new row into ttt2stats_credit_transactions when a player takes credits from a corpse
+	hook.Add("TTT2OnGiveFoundCredits", "ttt2stats_OnGiveFoundCredits", function(ply, rag, credits)
+		if roundID == -1 then
+			if GetConVar("ttt2stats_debug"):GetBool() then
+				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+			end
+			return
+		end
+		local transaction_type = "CorpseCreditsFound"
+		local trans_time = os.time()
+		local sourceSteamId = rag.sid64
+		local destSteamId = ply:SteamID64()
+		local source_new_balance = 0
+		local dest_new_balance = ply:GetCredits()
+		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");");
+	end)
+
+	-- Hook TTT2CanTransferCredits; inserts a new row into ttt2stats_credit_transactions when a player transfers credits to another player
+	hook.Add("TTT2TransferedCredits", "ttt2stats_TTT2TransferedCredits", function(sender, recipient, credits, isRecipientDead)
+		if roundID == -1 then
+			if GetConVar("ttt2stats_debug"):GetBool() then
+				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+			end
+			return
+		end
+		local transaction_type = "CreditTransfer"
+		local trans_time = os.time()
+		local sourceSteamId = sender:SteamID64()
+		local source_new_balance = sender:GetCredits()
+		local destSteamId = ""
+		local dest_new_balance = 0
+		if isRecipientDead then
+			local rag = recipient:FindCorpse()
+			if IsValid(rag) then
+				destSteamId = rag.sid64
+				dest_new_balance = CORPSE.GetCredits(rag, 0)
+			end
+		else
+			destSteamId = recipient:SteamID64()
+			dest_new_balance = recipient:GetCredits()
+		end
+		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");")
+	end)
+
+	-- Hook TTT2ReceivedKillCredits; inserts a new row into ttt2stats_credit_transactions when a player receives credits for killing another player
+	hook.Add("TTT2ReceivedKillCredits", "ttt2stats_TTT2ReceivedKillCredits", function(victim, attacker, creditsAmount)
+		if roundID == -1 then
+			if GetConVar("ttt2stats_debug"):GetBool() then
+				print("DEBUG-TTT2STATS: TTT2OnGiveFoundCredits hook called before a round has started. Skipping.")
+			end
+			return
+		end
+		local transaction_type = "KillCreditAward"
+		local trans_time = os.time()
+		local sourceSteamId = victim:SteamID64()
+		local source_new_balance = NULL
+		local destSteamId = attacker:SteamID64()
+		local dest_new_balance = attacker:GetCredits()
+		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");")
+	end)
+
+	-- Hook TTT2ReceivedTeamAwardCredits; inserts a new row into ttt2stats_credit_transactions when a player receives credits from a team award.
+	hook.Add("TTT2ReceivedTeamAwardCredits", "ttt2stats_TTT2ReceivedTeamAwardCredits", function(ply, creditsAmount)
+		local transaction_type = "TeamCreditAward"
+		local trans_time = os.time()
+		local sourceSteamId = NULL
+		local source_new_balance = NULL
+		local destSteamId = ply:SteamID64()
+		local dest_new_balance = ply:GetCredits()
+		sql.Query("INSERT INTO ttt2stats_credit_transactions (round_id,transaction_type,trans_time,credit_amount,source,destination,source_new_balance,dest_new_balance) VALUES (" .. sql.SQLStr(roundID) .. "," .. sql.SQLStr(transaction_type) .. "," .. sql.SQLStr(trans_time) .. "," .. sql.SQLStr(credits) .. "," .. sql.SQLStr(sourceSteamId) .. "," .. sql.SQLStr(destSteamId) .. "," .. sql.SQLStr(source_new_balance) .. "," .. sql.SQLStr(dest_new_balance) .. ");")
+	end)
 
 end
