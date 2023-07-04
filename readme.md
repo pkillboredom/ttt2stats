@@ -1,10 +1,10 @@
 ## ttt2stats
 
-This Garry's Mod addon stores a variety of events and stats about TTT2 game rounds. Eventually it will have two companion projects-- a blazor wasm static web app and a .net api. Both are private but will be public after I implement auth.
+This Garry's Mod addon stores a variety of events and stats about TTT2 game rounds. It has two companion projects-- a blazor wasm static web app and a .net api. See my profile for those.
 
 This addon currently requires my fork of TTT2.
 
-This addon is still under development and no one should probably use it yet, unless you find it abandoned and want to carry it forward.
+This addon is still under development and some errors should be expected.
 
 ### Currently Tracking:
 
